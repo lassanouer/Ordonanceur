@@ -17,34 +17,33 @@ import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
 
 import com.ov.SparkManager;
-import com.ov.VelibProvider;
 import com.ov.importDataSources.ImportAPIfile;
 import com.ov.project.mapper.StationDTO;
 
 public class DataManipulation {
 
 	// Date format
-	public static SimpleDateFormat dateAndTime = new SimpleDateFormat(BundelUtils.get("date.and.time.format"));
-	public static SimpleDateFormat date = new SimpleDateFormat(BundelUtils.get("date.format"));
+	public static SimpleDateFormat sDateAndTime = new SimpleDateFormat(BundelUtils.get("date.and.time.format"));
+	public static SimpleDateFormat sDate = new SimpleDateFormat(BundelUtils.get("date.format"));
 
 	/**
 	 * create parquet Schema of StationDTO
 	 * 
 	 * @return
 	 */
-	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String filename) {
-		JavaSparkContext javaSparkContext = SingletonWrappers.sparkContextGetInstance();
-		JavaRDD<StationDTO> stations = javaSparkContext.textFile(filename).map(new Function<String, StationDTO>() {
+	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String iFilename) {
+		JavaSparkContext lJavaSparkContext = SingletonWrappers.sparkContextGetInstance();
+		JavaRDD<StationDTO> lStations = lJavaSparkContext.textFile(iFilename).map(new Function<String, StationDTO>() {
 			public StationDTO call(String line) throws Exception {
 
 				// clean text et attributs
-				List<String> parts = Arrays.asList(line.replace("[{}[]]+", "").split(",\""));
-				for (String part : parts) {
-					part = part.replace("\"", "");
+				List<String> lUnits = Arrays.asList(line.replace("[{}[]]+", "").split(",\""));
+				for (String lTemp : lUnits) {
+					lTemp = lTemp.replace("\"", "");
 				}
 
 				// retour l'objet stationDTO
-				return jsonStationToObject(parts);
+				return jsonStationToObject(lUnits);
 
 				// TODO
 				// ****************TO VERIF******************
@@ -54,7 +53,7 @@ public class DataManipulation {
 
 			}
 		});
-		return stations;
+		return lStations;
 	}
 
 	/**
@@ -64,35 +63,36 @@ public class DataManipulation {
 	 * @return
 	 */
 	public static StationDTO jsonStationToObject(List<String> iLigneJson) {
-		Date now = new Date();
-		StationDTO station = new StationDTO();
-		station.setfStationId(
+		Date lNow = new Date();
+		StationDTO lStation = new StationDTO();
+		lStation.setfStationId(
 				iLigneJson.get(0).substring(iLigneJson.get(0).indexOf(":") + 1, iLigneJson.get(0).length()));
-		station.setfBanking(Boolean
+		lStation.setfBanking(Boolean
 				.valueOf(iLigneJson.get(5).substring(iLigneJson.get(5).indexOf(":") + 1, iLigneJson.get(5).length()))
 				.booleanValue());
-		station.setfBonus(Boolean
+		lStation.setfBonus(Boolean
 				.valueOf(iLigneJson.get(6).substring(iLigneJson.get(6).indexOf(":") + 1, iLigneJson.get(6).length()))
 				.booleanValue());
-		station.setfStatus(iLigneJson.get(7).substring(iLigneJson.get(7).indexOf(":") + 1, iLigneJson.get(7).length()));
-		station.setfBikeStands(Float
+		lStation.setfStatus(
+				iLigneJson.get(7).substring(iLigneJson.get(7).indexOf(":") + 1, iLigneJson.get(7).length()));
+		lStation.setfBikeStands(Float
 				.valueOf(iLigneJson.get(9).substring(iLigneJson.get(9).indexOf(":") + 1, iLigneJson.get(9).length()))
 				.floatValue());
-		station.setfAvailableBikeStands(Float
+		lStation.setfAvailableBikeStands(Float
 				.valueOf(iLigneJson.get(10).substring(iLigneJson.get(10).indexOf(":") + 1, iLigneJson.get(10).length()))
 				.floatValue());
-		station.setfAvailableBikes(Float
+		lStation.setfAvailableBikes(Float
 				.valueOf(iLigneJson.get(11).substring(iLigneJson.get(11).indexOf(":") + 1, iLigneJson.get(11).length()))
 				.floatValue());
-		station.setfMonth(String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1));
-		station.setfDayOfWeek(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_WEEK)));
-		station.setfHour(String.valueOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)));
-		station.setfRoundedMinutes(String.valueOf(Calendar.getInstance().get(Calendar.MINUTE)));
-		station.setfSystemDate(now.getTime());
-		station.setfRealDate(now.getTime());
-		station.setfRoundedSystemDate(now.getTime());
-		station.setfLaggedRoundedSystemDate(now.getTime());
-		return station;
+		lStation.setfMonth(String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1));
+		lStation.setfDayOfWeek(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_WEEK)));
+		lStation.setfHour(String.valueOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)));
+		lStation.setfRoundedMinutes(String.valueOf(Calendar.getInstance().get(Calendar.MINUTE)));
+		lStation.setfSystemDate(lNow.getTime());
+		lStation.setfRealDate(lNow.getTime());
+		lStation.setfRoundedSystemDate(lNow.getTime());
+		lStation.setfLaggedRoundedSystemDate(lNow.getTime());
+		return lStation;
 	}
 
 	/**
@@ -103,23 +103,23 @@ public class DataManipulation {
 	 * @return
 	 */
 	public static String getDataBrute(String iUrl, String iPath) {
-		Date now = new Date();
-		String lFile = BundelUtils.get("suffix.for.data.file") + dateAndTime.format(now) + ".txt";
-		Path path = Paths.get(iPath + date.format(now));
+		Date lNow = new Date();
+		String lFile = BundelUtils.get("suffix.for.data.file") + sDateAndTime.format(lNow) + ".txt";
+		Path lPath = Paths.get(iPath + sDate.format(lNow));
 
 		// cree le fichier qui contien les données de la date actuelle
-		if (Files.notExists(path))
-			new File(iPath + date.format(now)).mkdir();
+		if (Files.notExists(lPath))
+			new File(iPath + sDate.format(lNow)).mkdir();
 
 		try {
-			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + date.format(now), lFile);
+			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + sDate.format(lNow), lFile);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
 		// besoin de retourner le file path pour plus simple que l'identifier
 		// par date dans la prochaine etape
-		return iPath + date.format(now) + "/" + lFile;
+		return iPath + sDate.format(lNow) + "/" + lFile;
 	}
 
 	/**
@@ -129,35 +129,34 @@ public class DataManipulation {
 	 * @param iParquetPath (BundelUtils.get("data.frame.path"))
 	 */
 	public static void getParquets(String iJsonPath, String iParquetPath) {
-		Date now = new Date();
+		Date lNow = new Date();
 		// config
-		JavaSparkContext sparkCtx = SingletonWrappers.sparkContextGetInstance();
-		SQLContext sqlContext = new org.apache.spark.sql.SQLContext(sparkCtx);
+		JavaSparkContext lSparkCtx = SingletonWrappers.sparkContextGetInstance();
+		SQLContext lSqlContext = new org.apache.spark.sql.SQLContext(lSparkCtx);
 
 		// get data from Json
-		JavaRDD<StationDTO> stations = stationDTOFromJsonConverter(iJsonPath);
-		DataFrame schemaStations = sqlContext.createDataFrame(stations, StationDTO.class);
+		JavaRDD<StationDTO> lStationsDTO = stationDTOFromJsonConverter(iJsonPath);
+		DataFrame lSchemaStations = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
 
 		// join les données dynamique et les données statics liée a la
 		// géolocalisation
-		DataFrame schemaSatic = sqlContext.read().load(BundelUtils.get("static.path"));
-		DataFrame finalJoin = schemaStations.join(schemaSatic);
+		DataFrame lSchemaSatic = lSqlContext.read().load(BundelUtils.get("static.path"));
+		DataFrame lFinalJoin = lSchemaStations.join(lSchemaSatic);
 
 		// generate parquet
-		finalJoin.write().save(iParquetPath + dateAndTime.format(now));
+		lFinalJoin.write().save(iParquetPath + sDateAndTime.format(lNow));
 
 		// TODO insert to impala Database
-		//finalJoin.registerTempTable("stations");
+		// finalJoin.registerTempTable("stations");
 	}
 
 	// Test
 	public static void main(String[] args) {
-		String jsonFile;
+		String lJsonFile;
 		SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
-		VelibProvider lProvider = new VelibProvider(BundelUtils.get("license.path"));
 		// get les données brutes de JcDecaux
-		jsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"), BundelUtils.get("bruteData.path"));
+		lJsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"), BundelUtils.get("bruteData.path"));
 		// to parquet
-		DataManipulation.getParquets(jsonFile, BundelUtils.get("data.frame.path"));
+		DataManipulation.getParquets(lJsonFile, BundelUtils.get("data.frame.path"));
 	}
 }

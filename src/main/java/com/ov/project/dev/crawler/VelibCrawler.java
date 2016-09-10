@@ -1,7 +1,6 @@
 package com.ov.project.dev.crawler;
 
 import com.ov.SparkManager;
-import com.ov.VelibProvider;
 import com.ov.project.utilities.BundelUtils;
 import com.ov.project.utilities.DataManipulation;
 
@@ -21,13 +20,13 @@ public class VelibCrawler {
 			public void run() {
 				while (!sCancel) {
 					SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
-					String jsonFile;
+					String lJsonFile;
 					// get les données brutes de JcDecaux
-					jsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"),
+					lJsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"),
 							BundelUtils.get("bruteData.path"));
 
 					// generate parquets
-					DataManipulation.getParquets(jsonFile, BundelUtils.get("data.frame.path"));
+					DataManipulation.getParquets(lJsonFile, BundelUtils.get("data.frame.path"));
 
 					try {
 						Thread.sleep(sDeuxMinutes);

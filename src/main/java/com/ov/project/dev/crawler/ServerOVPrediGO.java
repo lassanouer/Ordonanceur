@@ -10,19 +10,16 @@ import com.ov.project.utilities.Constants;
 
 public class ServerOVPrediGO {
 
-	/*
-	 * Variables de test
-	 */
-	int lValue = 30;
-	private ServerSocket server = null;
-	private boolean isRunning = true;
-	/*
-	 * 
-	 */
+	private ServerSocket mServer = null;
+	private boolean mIsRunning = true;
 
+	/**
+	 * 
+	 * Constructor
+	 */
 	public ServerOVPrediGO() {
 		try {
-			server = new ServerSocket(Constants.sPort, 100, InetAddress.getByName(Constants.sHost));
+			mServer = new ServerSocket(Constants.sPort, 100, InetAddress.getByName(Constants.sHost));
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -34,36 +31,36 @@ public class ServerOVPrediGO {
 	public void open() {
 
 		// Toujours dans un thread à part vu qu'il est dans une boucle infinie
-		Thread t = new Thread(new Runnable() {
+		Thread lThread = new Thread(new Runnable() {
 			public void run() {
-				while (isRunning == true) {
+				while (mIsRunning == true) {
 
 					try {
 						// On attend une connexion d'un client
-						Socket socket = server.accept();
+						Socket lSocket = mServer.accept();
 
 						// Manu avec le client non encore achevée
 
-						socket.close();
+						lSocket.close();
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 				}
 
 				try {
-					server.close();
+					mServer.close();
 				} catch (IOException e) {
 					e.printStackTrace();
-					server = null;
+					mServer = null;
 				}
 			}
 		});
 
-		t.start();
+		lThread.start();
 	}
 
 	public void close() {
-		isRunning = false;
+		mIsRunning = false;
 	}
 
 	// test
