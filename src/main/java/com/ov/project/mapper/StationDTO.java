@@ -12,7 +12,6 @@ public class StationDTO implements Serializable {
 	private String fHour;
 	private String fRoundedMinutes;
 	private String fStatus;
-//	private String sZipcode;
 	private long fSystemDate;
 	private long fRealDate;
 	private long fRoundedSystemDate;
@@ -22,12 +21,13 @@ public class StationDTO implements Serializable {
 	private float fBikeStands;
 	private float fAvailableBikeStands;
 	private float fAvailableBikes;
-//	private float sLat;
-//	private float sLong;
-//	private float sAlt;
-//	private float sPopulation;
-//	private float sArea;
-//	private float sPerimeter;
+	// private String sZipcode;
+	// private float sLat;
+	// private float sLong;
+	// private float sAlt;
+	// private float sPopulation;
+	// private float sArea;
+	// private float sPerimeter;
 
 	public String getfStationId() {
 		return fStationId;
@@ -148,61 +148,5 @@ public class StationDTO implements Serializable {
 	public void setfRoundedMinutes(String fRoundedMinutes) {
 		this.fRoundedMinutes = fRoundedMinutes;
 	}
-//
-//	public float getsLat() {
-//		return sLat;
-//	}
-//
-//	public void setsLat(float sLat) {
-//		this.sLat = sLat;
-//	}
-//
-//	public float getsLong() {
-//		return sLong;
-//	}
-//
-//	public void setsLong(float sLong) {
-//		this.sLong = sLong;
-//	}
-//
-//	public float getsAlt() {
-//		return sAlt;
-//	}
-//
-//	public void setsAlt(float sAlt) {
-//		this.sAlt = sAlt;
-//	}
-//
-//	public float getsPopulation() {
-//		return sPopulation;
-//	}
-//
-//	public void setsPopulation(float sPopulation) {
-//		this.sPopulation = sPopulation;
-//	}
-//
-//	public float getsArea() {
-//		return sArea;
-//	}
-//
-//	public void setsArea(float sArea) {
-//		this.sArea = sArea;
-//	}
-//
-//	public float getsPerimeter() {
-//		return sPerimeter;
-//	}
-//
-//	public void setsPerimeter(float sPerimeter) {
-//		this.sPerimeter = sPerimeter;
-//	}
-//
-//	public String getsZipcode() {
-//		return sZipcode;
-//	}
-//
-//	public void setsZipcode(String sZipcode) {
-//		this.sZipcode = sZipcode;
-//	}
 
 }

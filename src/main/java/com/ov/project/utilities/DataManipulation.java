@@ -8,22 +8,15 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructField;
-import org.apache.spark.sql.types.StructType;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ov.SparkManager;
-import com.ov.VelibKey;
 import com.ov.VelibProvider;
 import com.ov.importDataSources.ImportAPIfile;
 import com.ov.project.mapper.StationDTO;
@@ -33,61 +26,45 @@ public class DataManipulation {
 	// Date format
 	public static SimpleDateFormat dateAndTime = new SimpleDateFormat(BundelUtils.get("date.and.time.format"));
 	public static SimpleDateFormat date = new SimpleDateFormat(BundelUtils.get("date.format"));
-	public static Date now = new Date();
 
 	/**
 	 * create parquet Schema of StationDTO
 	 * 
 	 * @return
 	 */
-	private static StructType buildSchema() {
-		StructType schema = new StructType(
-				new StructField[] { DataTypes.createStructField("fStationId", DataTypes.StringType, true),
-						DataTypes.createStructField("fMonth", DataTypes.StringType, true),
-						DataTypes.createStructField("fDayOfWeek", DataTypes.StringType, true),
-						DataTypes.createStructField("fHour", DataTypes.StringType, true),
-						DataTypes.createStructField("fRoundedMinutes", DataTypes.StringType, true),
-						DataTypes.createStructField("fStatus", DataTypes.StringType, true),
-						DataTypes.createStructField("sZipcode", DataTypes.StringType, true),
-
-						DataTypes.createStructField("fSystemDate", DataTypes.LongType, true),
-						DataTypes.createStructField("fRealDate", DataTypes.LongType, true),
-						DataTypes.createStructField("fRoundedSystemDate", DataTypes.LongType, true),
-						DataTypes.createStructField("fLaggedRoundedSystemDate", DataTypes.LongType, true),
-
-						DataTypes.createStructField("fBanking", DataTypes.BooleanType, true),
-						DataTypes.createStructField("fBonus", DataTypes.BooleanType, true),
-
-						DataTypes.createStructField("fBikeStands", DataTypes.FloatType, true),
-						DataTypes.createStructField("fAvailableBikeStands", DataTypes.FloatType, true),
-						DataTypes.createStructField("fAvailableBikes", DataTypes.FloatType, true),
-						DataTypes.createStructField("sLat", DataTypes.FloatType, true),
-						DataTypes.createStructField("sAlt", DataTypes.FloatType, true),
-						DataTypes.createStructField("sLong", DataTypes.FloatType, true),
-						DataTypes.createStructField("sPopulation", DataTypes.FloatType, true),
-						DataTypes.createStructField("sArea", DataTypes.FloatType, true),
-						DataTypes.createStructField("sPerimeter", DataTypes.FloatType, true), });
-		return (schema);
-	}
-
 	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String filename) {
 		JavaSparkContext javaSparkContext = SingletonWrappers.sparkContextGetInstance();
 		JavaRDD<StationDTO> stations = javaSparkContext.textFile(filename).map(new Function<String, StationDTO>() {
 			public StationDTO call(String line) throws Exception {
-				List<String> parts = Arrays.asList(line.replaceAll("[]{}", "").split(",\""));
+
+				// clean text et attributs
+				List<String> parts = Arrays.asList(line.replace("[{}[]]+", "").split(",\""));
 				for (String part : parts) {
 					part = part.replace("\"", "");
 				}
+
+				// retour l'objet stationDTO
 				return jsonStationToObject(parts);
+
+				// TODO
+				// ****************TO VERIF******************
+				// ObjectMapper mapper = new ObjectMapper();
+				// return mapper.readValue(line, StationDTO.class);
+				// ****************TO VERIF******************
+
 			}
 		});
 		return stations;
 	}
 
+	/**
+	 * Convertir ligne json to StationDTO object
+	 * 
+	 * @param iLigneJson
+	 * @return
+	 */
 	public static StationDTO jsonStationToObject(List<String> iLigneJson) {
 		Date now = new Date();
-//		ObjectMapper mapper = new ObjectMapper();
-//		StationDTO station = mapper.readValue(line, StationDTO.class);
 		StationDTO station = new StationDTO();
 		station.setfStationId(
 				iLigneJson.get(0).substring(iLigneJson.get(0).indexOf(":") + 1, iLigneJson.get(0).length()));
@@ -121,50 +98,66 @@ public class DataManipulation {
 	/**
 	 * reception de Json a partir de Url de JcDecaux
 	 * 
-	 * @param iUrl
-	 *            (BundelUtils.get("url.stations"))
-	 * @param iPath
-	 *            (BundelUtils.get("bruteData.path"))
+	 * @param iUrl (BundelUtils.get("url.stations"))
+	 * @param iPath (BundelUtils.get("bruteData.path"))
 	 * @return
 	 */
 	public static String getDataBrute(String iUrl, String iPath) {
+		Date now = new Date();
 		String lFile = BundelUtils.get("suffix.for.data.file") + dateAndTime.format(now) + ".txt";
 		Path path = Paths.get(iPath + date.format(now));
+
+		// cree le fichier qui contien les données de la date actuelle
 		if (Files.notExists(path))
 			new File(iPath + date.format(now)).mkdir();
+
 		try {
 			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + date.format(now), lFile);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+
+		// besoin de retourner le file path pour plus simple que l'identifier
+		// par date dans la prochaine etape
 		return iPath + date.format(now) + "/" + lFile;
 	}
 
 	/**
 	 * parser un fichier json a parquets
 	 * 
-	 * @param iJsonPath
-	 *            (BundelUtils.get("bruteData.path"))
-	 * @param iParquetPath
-	 *            (BundelUtils.get("data.frame.path"))
+	 * @param iJsonPath (BundelUtils.get("bruteData.path"))
+	 * @param iParquetPath (BundelUtils.get("data.frame.path"))
 	 */
 	public static void getParquets(String iJsonPath, String iParquetPath) {
+		Date now = new Date();
+		// config
 		JavaSparkContext sparkCtx = SingletonWrappers.sparkContextGetInstance();
 		SQLContext sqlContext = new org.apache.spark.sql.SQLContext(sparkCtx);
+
+		// get data from Json
 		JavaRDD<StationDTO> stations = stationDTOFromJsonConverter(iJsonPath);
 		DataFrame schemaStations = sqlContext.createDataFrame(stations, StationDTO.class);
+
+		// join les données dynamique et les données statics liée a la
+		// géolocalisation
 		DataFrame schemaSatic = sqlContext.read().load(BundelUtils.get("static.path"));
-		schemaStations.join(schemaSatic).write().save(iParquetPath + dateAndTime.format(now));
+		DataFrame finalJoin = schemaStations.join(schemaSatic);
+
+		// generate parquet
+		finalJoin.write().save(iParquetPath + dateAndTime.format(now));
+
+		// TODO insert to impala Database
+		//finalJoin.registerTempTable("stations");
 	}
 
 	// Test
 	public static void main(String[] args) {
 		String jsonFile;
-		Map<VelibKey, Integer> lMap = new HashMap<VelibKey, Integer>();
 		SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
 		VelibProvider lProvider = new VelibProvider(BundelUtils.get("license.path"));
 		// get les données brutes de JcDecaux
 		jsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"), BundelUtils.get("bruteData.path"));
+		// to parquet
 		DataManipulation.getParquets(jsonFile, BundelUtils.get("data.frame.path"));
 	}
 }
