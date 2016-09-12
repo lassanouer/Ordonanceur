@@ -38,7 +38,7 @@ public class ServerOVPrediGO {
 					try {
 						// On attend une connexion d'un client
 						Socket lSocket = mServer.accept();
-
+						
 						// Manu avec le client non encore achevée
 
 						lSocket.close();

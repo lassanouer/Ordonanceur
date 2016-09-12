@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -15,6 +16,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SaveMode;
 
 import com.ov.SparkManager;
 import com.ov.importDataSources.ImportAPIfile;
@@ -88,18 +90,20 @@ public class DataManipulation {
 		lStation.setfDayOfWeek(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_WEEK)));
 		lStation.setfHour(String.valueOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)));
 		lStation.setfRoundedMinutes(String.valueOf(Calendar.getInstance().get(Calendar.MINUTE)));
-		lStation.setfSystemDate(lNow.getTime());
-		lStation.setfRealDate(lNow.getTime());
-		lStation.setfRoundedSystemDate(lNow.getTime());
-		lStation.setfLaggedRoundedSystemDate(lNow.getTime());
+		lStation.setfSystemDate(new Timestamp(lNow.getTime()));
+		lStation.setfRealDate(new Timestamp(lNow.getTime()));
+		lStation.setfRoundedSystemDate(new Timestamp(lNow.getTime()));
+		lStation.setfLaggedRoundedSystemDate(new Timestamp(lNow.getTime()));
 		return lStation;
 	}
 
 	/**
 	 * reception de Json a partir de Url de JcDecaux
 	 * 
-	 * @param iUrl (BundelUtils.get("url.stations"))
-	 * @param iPath (BundelUtils.get("bruteData.path"))
+	 * @param iUrl
+	 *            (BundelUtils.get("url.stations"))
+	 * @param iPath
+	 *            (BundelUtils.get("bruteData.path"))
 	 * @return
 	 */
 	public static String getDataBrute(String iUrl, String iPath) {
@@ -108,8 +112,9 @@ public class DataManipulation {
 		Path lPath = Paths.get(iPath + sDate.format(lNow));
 
 		// cree le fichier qui contien les données de la date actuelle
-		if (Files.notExists(lPath))
+		if (Files.notExists(lPath)) {
 			new File(iPath + sDate.format(lNow)).mkdir();
+		}
 
 		try {
 			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + sDate.format(lNow), lFile);
@@ -125,8 +130,10 @@ public class DataManipulation {
 	/**
 	 * parser un fichier json a parquets
 	 * 
-	 * @param iJsonPath (BundelUtils.get("bruteData.path"))
-	 * @param iParquetPath (BundelUtils.get("data.frame.path"))
+	 * @param iJsonPath
+	 *            (BundelUtils.get("bruteData.path"))
+	 * @param iParquetPath
+	 *            (BundelUtils.get("data.frame.path"))
 	 */
 	public static void getParquets(String iJsonPath, String iParquetPath) {
 		Date lNow = new Date();
@@ -136,15 +143,32 @@ public class DataManipulation {
 
 		// get data from Json
 		JavaRDD<StationDTO> lStationsDTO = stationDTOFromJsonConverter(iJsonPath);
-		DataFrame lSchemaStations = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
+		DataFrame lSchemaDBrute = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
 
 		// join les données dynamique et les données statics liée a la
 		// géolocalisation
 		DataFrame lSchemaSatic = lSqlContext.read().load(BundelUtils.get("static.path"));
-		DataFrame lFinalJoin = lSchemaStations.join(lSchemaSatic);
+		DataFrame lFinalJoin = lSchemaDBrute
+				.join(lSchemaSatic, lSchemaDBrute.col("fStationId").equalTo(lSchemaSatic.col("sStationId")),
+						"rightouter")
+				.select(lSchemaDBrute.col("fStationId"), lSchemaDBrute.col("fSystemDate"),
+						lSchemaDBrute.col("fRealDate"), lSchemaDBrute.col("fRoundedSystemDate"),
+						lSchemaDBrute.col("fLaggedRoundedSystemDate"), lSchemaDBrute.col("fBanking"),
+						lSchemaDBrute.col("fBonus"), lSchemaDBrute.col("fStatus"), lSchemaDBrute.col("fBikeStands"),
+						lSchemaDBrute.col("fAvailableBikeStands"), lSchemaDBrute.col("fAvailableBikes"),
+						lSchemaDBrute.col("fMonth"), lSchemaDBrute.col("fDayOfWeek"), lSchemaDBrute.col("fHour"),
+						lSchemaDBrute.col("fRoundedMinutes"), lSchemaSatic.col("sLat"), lSchemaSatic.col("sLong"),
+						lSchemaSatic.col("sAlt"), lSchemaSatic.col("sPopTot"), lSchemaSatic.col("sArea"),
+						lSchemaSatic.col("sPerimeter"), lSchemaSatic.col("sZipcode"))
+				.withColumnRenamed("sPopTot", "sPopulation");
 
 		// generate parquet
-		lFinalJoin.write().save(iParquetPath + sDateAndTime.format(lNow));
+		String lLinkToOutputFile = iParquetPath + sDate.format(lNow);
+		Path lPath = Paths.get(lLinkToOutputFile);
+		if (Files.notExists(lPath)) {
+			new File(lLinkToOutputFile).mkdir();
+		}
+		lFinalJoin.write().mode(SaveMode.Append).save(lLinkToOutputFile);
 
 		// TODO insert to impala Database
 		// finalJoin.registerTempTable("stations");
