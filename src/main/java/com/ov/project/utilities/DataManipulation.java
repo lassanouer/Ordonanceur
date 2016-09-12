@@ -29,8 +29,8 @@ public class DataManipulation {
 	public static SimpleDateFormat sDate = new SimpleDateFormat(BundelUtils.get("date.format"));
 
 	/**
-	 * create parquet Schema of StationDTO
-	 * 
+	 * recolter les stations de fichier JSON
+	 * @param iFilename
 	 * @return
 	 */
 	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String iFilename) {
@@ -46,13 +46,6 @@ public class DataManipulation {
 
 				// retour l'objet stationDTO
 				return jsonStationToObject(lUnits);
-
-				// TODO
-				// ****************TO VERIF******************
-				// ObjectMapper mapper = new ObjectMapper();
-				// return mapper.readValue(line, StationDTO.class);
-				// ****************TO VERIF******************
-
 			}
 		});
 		return lStations;
@@ -67,35 +60,30 @@ public class DataManipulation {
 	public static StationDTO jsonStationToObject(List<String> iLigneJson) {
 		Date lNow = new Date();
 		StationDTO lStation = new StationDTO();
-		lStation.setfStationId(
-				iLigneJson.get(0).substring(iLigneJson.get(0).indexOf(":") + 1, iLigneJson.get(0).length()));
-		lStation.setfBanking(Boolean
-				.valueOf(iLigneJson.get(5).substring(iLigneJson.get(5).indexOf(":") + 1, iLigneJson.get(5).length()))
-				.booleanValue());
-		lStation.setfBonus(Boolean
-				.valueOf(iLigneJson.get(6).substring(iLigneJson.get(6).indexOf(":") + 1, iLigneJson.get(6).length()))
-				.booleanValue());
-		lStation.setfStatus(
-				iLigneJson.get(7).substring(iLigneJson.get(7).indexOf(":") + 1, iLigneJson.get(7).length()));
-		lStation.setfBikeStands(Float
-				.valueOf(iLigneJson.get(9).substring(iLigneJson.get(9).indexOf(":") + 1, iLigneJson.get(9).length()))
-				.floatValue());
-		lStation.setfAvailableBikeStands(Float
-				.valueOf(iLigneJson.get(10).substring(iLigneJson.get(10).indexOf(":") + 1, iLigneJson.get(10).length()))
-				.floatValue());
-		lStation.setfAvailableBikes(Float
-				.valueOf(iLigneJson.get(11).substring(iLigneJson.get(11).indexOf(":") + 1, iLigneJson.get(11).length()))
-				.floatValue());
+		
+		lStation.setfStationId(iLigneJson.get(0).substring(iLigneJson.get(0).indexOf(":") + 1, iLigneJson.get(0).length()));
+		lStation.setfBanking(Boolean.valueOf(iLigneJson.get(5).substring(iLigneJson.get(5).indexOf(":") + 1, iLigneJson.get(5).length())).booleanValue());
+		lStation.setfBonus(Boolean.valueOf(iLigneJson.get(6).substring(iLigneJson.get(6).indexOf(":") + 1, iLigneJson.get(6).length())).booleanValue());
+		lStation.setfStatus(iLigneJson.get(7).substring(iLigneJson.get(7).indexOf(":") + 1, iLigneJson.get(7).length()));
+		lStation.setfBikeStands(Float.valueOf(iLigneJson.get(9).substring(iLigneJson.get(9).indexOf(":") + 1, iLigneJson.get(9).length())).floatValue());
+		lStation.setfAvailableBikeStands(Float.valueOf(iLigneJson.get(10).substring(iLigneJson.get(10).indexOf(":") + 1, iLigneJson.get(10).length())).floatValue());
+		lStation.setfAvailableBikes(Float.valueOf(iLigneJson.get(11).substring(iLigneJson.get(11).indexOf(":") + 1, iLigneJson.get(11).length())).floatValue());
+		
 		lStation.setfMonth(String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1));
 		lStation.setfDayOfWeek(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_WEEK)));
 		lStation.setfHour(String.valueOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)));
 		lStation.setfRoundedMinutes(String.valueOf(Calendar.getInstance().get(Calendar.MINUTE)));
+		
 		lStation.setfSystemDate(new Timestamp(lNow.getTime()));
 		lStation.setfRealDate(new Timestamp(lNow.getTime()));
-		lStation.setfRoundedSystemDate(new Timestamp(lNow.getTime()));
-		lStation.setfLaggedRoundedSystemDate(new Timestamp(lNow.getTime()));
+		
+		//dates traitées selon le parquet modele
+		lStation.setfRoundedSystemDate(new Timestamp(DateUtils.roundFiveMin(lNow).getTime()));
+		lStation.setfLaggedRoundedSystemDate(DateUtils.calculateLaggedRoundedSystemDate());
+	
 		return lStation;
 	}
+
 
 	/**
 	 * reception de Json a partir de Url de JcDecaux
@@ -145,12 +133,13 @@ public class DataManipulation {
 		JavaRDD<StationDTO> lStationsDTO = stationDTOFromJsonConverter(iJsonPath);
 		DataFrame lSchemaDBrute = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
 
-		// join les données dynamique et les données statics liée a la
-		// géolocalisation
+		// join les données dynamique et les données statics
 		DataFrame lSchemaSatic = lSqlContext.read().load(BundelUtils.get("static.path"));
 		DataFrame lFinalJoin = lSchemaDBrute
 				.join(lSchemaSatic, lSchemaDBrute.col("fStationId").equalTo(lSchemaSatic.col("sStationId")),
 						"rightouter")
+				
+				//order columns
 				.select(lSchemaDBrute.col("fStationId"), lSchemaDBrute.col("fSystemDate"),
 						lSchemaDBrute.col("fRealDate"), lSchemaDBrute.col("fRoundedSystemDate"),
 						lSchemaDBrute.col("fLaggedRoundedSystemDate"), lSchemaDBrute.col("fBanking"),
@@ -160,6 +149,7 @@ public class DataManipulation {
 						lSchemaDBrute.col("fRoundedMinutes"), lSchemaSatic.col("sLat"), lSchemaSatic.col("sLong"),
 						lSchemaSatic.col("sAlt"), lSchemaSatic.col("sPopTot"), lSchemaSatic.col("sArea"),
 						lSchemaSatic.col("sPerimeter"), lSchemaSatic.col("sZipcode"))
+				//rename column sPopTot to sPopulation
 				.withColumnRenamed("sPopTot", "sPopulation");
 
 		// generate parquet
