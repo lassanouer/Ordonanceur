@@ -3,6 +3,11 @@ package com.ov.project.mapper;
 import java.io.Serializable;
 import java.sql.Timestamp;
 
+/**
+ * 
+ * @author Anouer.Lassoued
+ *
+ */
 public class StationDTO implements Serializable {
 
 	private static final long serialVersionUID = 3326531724763418486L;

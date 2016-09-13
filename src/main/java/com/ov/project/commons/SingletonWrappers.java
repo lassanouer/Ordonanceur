@@ -1,8 +1,13 @@
-package com.ov.project.utilities;
+package com.ov.project.commons;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
+/**
+ * 
+ * @author Anouer.Lassoued
+ *
+ */
 //Pas de synchronized pour des raisons de performance
 public class SingletonWrappers {
 

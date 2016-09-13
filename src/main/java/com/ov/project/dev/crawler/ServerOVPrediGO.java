@@ -8,13 +8,17 @@ import java.net.UnknownHostException;
 
 import com.ov.project.utilities.Constants;
 
+/**
+ * 
+ * @author Anouer.Lassoued
+ *
+ */
 public class ServerOVPrediGO {
 
 	private ServerSocket mServer = null;
 	private boolean mIsRunning = true;
 
-	/**
-	 * 
+	/* 
 	 * Constructor
 	 */
 	public ServerOVPrediGO() {
@@ -27,7 +31,10 @@ public class ServerOVPrediGO {
 		}
 	}
 
-	// On lance notre serveur
+	/**
+	 * 
+	 * Thread de reception appel aux prédiction de clients
+	 */
 	public void open() {
 
 		// Toujours dans un thread à part vu qu'il est dans une boucle infinie

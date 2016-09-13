@@ -1,9 +1,14 @@
 package com.ov.project.dev.crawler;
 
 import com.ov.SparkManager;
+import com.ov.project.commons.DataManipulation;
 import com.ov.project.utilities.BundelUtils;
-import com.ov.project.utilities.DataManipulation;
 
+/**
+ * 
+ * @author Anouer.Lassoued
+ *
+ */
 public class VelibCrawler {
 
 	private static boolean sCancel = false;
@@ -40,7 +45,7 @@ public class VelibCrawler {
 	}
 
 	/**
-	 * Arrete l'application et tous ses threads.
+	 * Arrete le thread goCrawlThread().
 	 */
 	public static void cancel() {
 		sCancel = true;
