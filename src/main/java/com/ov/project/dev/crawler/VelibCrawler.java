@@ -20,7 +20,7 @@ public class VelibCrawler {
 	 * 
 	 * @return
 	 */
-	private static Thread goCrawlThread() {
+	private Thread goCrawlThread() {
 		return new Thread(new Runnable() {
 			public void run() {
 				while (!sCancel) {
@@ -52,7 +52,7 @@ public class VelibCrawler {
 	}
 
 	// test
-	public static void main(String[] args) {
+	public void main(String[] args) {
 		Thread lCrawlerThread = new Thread(goCrawlThread());
 		lCrawlerThread.start();
 	}

@@ -17,8 +17,10 @@ public class BundelUtils {
 	/**
 	 * Gets the param.
 	 *
-	 * @param bundleName the bundle name
-	 * @param key the key
+	 * @param bundleName
+	 *            the bundle name
+	 * @param key
+	 *            the key
 	 * @return the param
 	 */
 	public static String get(String key) {

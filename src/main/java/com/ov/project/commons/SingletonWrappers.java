@@ -3,33 +3,36 @@ package com.ov.project.commons;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
+import com.ov.SparkManager;
+import com.ov.project.utilities.BundelUtils;
+
 /**
  * 
  * @author Anouer.Lassoued
  *
  */
-//Pas de synchronized pour des raisons de performance
+// Pas de synchronized pour des raisons de performance
 public class SingletonWrappers {
 
-	private static JavaSparkContext instanceJavaSparkContext;
-	private static SparkConf instanceSparkConf;
+	private static JavaSparkContext mInstanceJavaSparkContext;
+	private static SparkConf mInstanceSparkConf;
 
 	private SingletonWrappers() {
 	}
 
 	public static JavaSparkContext sparkContextGetInstance() {
-		if (instanceJavaSparkContext == null) {
-			instanceSparkConf = sparkConfGetInstance();
-			instanceJavaSparkContext = new JavaSparkContext(instanceSparkConf);
+		if (mInstanceJavaSparkContext == null) {
+			mInstanceSparkConf = sparkConfGetInstance();
+			mInstanceJavaSparkContext = new JavaSparkContext(mInstanceSparkConf);
 		}
-		return instanceJavaSparkContext;
+		return mInstanceJavaSparkContext;
 	}
 
 	public static SparkConf sparkConfGetInstance() {
-		if (instanceSparkConf == null) {
-			instanceSparkConf = new SparkConf().setAppName("OV Project").setMaster("local");
+		if (mInstanceSparkConf == null) {
+			mInstanceSparkConf = new SparkConf().setAppName("OV Project").setMaster("local");
 		}
-		return instanceSparkConf;
+		return mInstanceSparkConf;
 	}
 
 }

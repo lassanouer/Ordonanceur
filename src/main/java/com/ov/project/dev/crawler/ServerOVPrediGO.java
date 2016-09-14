@@ -18,7 +18,7 @@ public class ServerOVPrediGO {
 	private ServerSocket mServer = null;
 	private boolean mIsRunning = true;
 
-	/* 
+	/*
 	 * Constructor
 	 */
 	public ServerOVPrediGO() {
@@ -45,7 +45,7 @@ public class ServerOVPrediGO {
 					try {
 						// On attend une connexion d'un client
 						Socket lSocket = mServer.accept();
-						
+
 						// Manu avec le client non encore achevée
 
 						lSocket.close();
@@ -74,7 +74,8 @@ public class ServerOVPrediGO {
 	public static void main(String[] args) {
 		ServerOVPrediGO lvlibCrawler = new ServerOVPrediGO();
 		lvlibCrawler.open();
-
+		ClientOVSocket lClientOVSocket = new ClientOVSocket();
+		lClientOVSocket.open();
 		// under Construction !!!
 
 		// VelibAppli.start(true);

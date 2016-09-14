@@ -39,9 +39,10 @@ public class DateUtils {
 		lCalendar.add(Calendar.HOUR, -1);
 		return lCalendar.getTime();
 	}
-	
+
 	/**
 	 * une heure en moins + arrondir date à 5 minute
+	 * 
 	 * @return
 	 */
 	public static Timestamp calculateLaggedRoundedSystemDate() {
