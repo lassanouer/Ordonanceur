@@ -3,6 +3,7 @@ package com.ov.project.dev.crawler;
 import com.ov.SparkManager;
 import com.ov.project.commons.DataManipulation;
 import com.ov.project.utilities.BundelUtils;
+import com.ov.project.utilities.Constants;
 
 /**
  * 
@@ -12,15 +13,14 @@ import com.ov.project.utilities.BundelUtils;
 public class VelibCrawler {
 
 	private static boolean sCancel = false;
-	private static final int sDeuxMinutes = 120000;
 
 	/**
-	 * Ceci thread qui aspirr les données pour la station fournie tous les 2
+	 * Ceci thread qui aspire les données pour la station fournie tous les 2
 	 * minutes
 	 * 
 	 * @return
 	 */
-	private Thread goCrawlThread() {
+	private static Thread goCrawlThread() {
 		return new Thread(new Runnable() {
 			public void run() {
 				while (!sCancel) {
@@ -34,7 +34,7 @@ public class VelibCrawler {
 					DataManipulation.getParquets(lJsonFile, BundelUtils.get("data.frame.path"));
 
 					try {
-						Thread.sleep(sDeuxMinutes);
+						Thread.sleep(Constants.sDeuxMinutes);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -52,7 +52,7 @@ public class VelibCrawler {
 	}
 
 	// test
-	public void main(String[] args) {
+	public static void main(String[] args) {
 		Thread lCrawlerThread = new Thread(goCrawlThread());
 		lCrawlerThread.start();
 	}

@@ -1,7 +1,11 @@
 package com.ov.project.commons;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,7 +24,7 @@ import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SaveMode;
 
-import com.ov.importDataSources.ImportAPIfile;
+import com.ov.SparkManager;
 import com.ov.project.mapper.StationDTO;
 import com.ov.project.utilities.BundelUtils;
 import com.ov.project.utilities.DateUtils;
@@ -38,28 +42,6 @@ public class DataManipulation {
 	// Date format
 	public static SimpleDateFormat sDateAndTime = new SimpleDateFormat(BundelUtils.get("date.and.time.format"));
 	public static SimpleDateFormat sDate = new SimpleDateFormat(BundelUtils.get("date.format"));
-
-	/**
-	 * recolter les stations de fichier JSON
-	 * 
-	 * @param iFilename
-	 * @return
-	 */
-	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String iFilename) {
-		JavaSparkContext lJavaSparkContext = SingletonWrappers.sparkContextGetInstance();
-		JavaRDD<StationDTO> lStations = lJavaSparkContext.textFile(iFilename).map(line -> {
-
-			// clean text et attributs
-			List<String> lUnits = Arrays.asList(line.replace("[{}[]]+", "").split(",\""));
-			for (String lTemp : lUnits) {
-				lTemp = lTemp.replace("\"", "");
-			}
-
-			// retour l'objet stationDTO
-			return jsonStationToObject(lUnits);
-		});
-		return lStations;
-	}
 
 	/**
 	 * Convertir ligne json to StationDTO object
@@ -107,6 +89,51 @@ public class DataManipulation {
 	}
 
 	/**
+	 * recolter les stations de fichier JSON
+	 * 
+	 * @param iFilename
+	 * @return
+	 */
+	private static JavaRDD<StationDTO> stationDTOFromJsonConverter(String iFilename) {
+		JavaSparkContext lJavaSparkContext = SingletonWrappers.sparkContextGetInstance();
+		JavaRDD<StationDTO> lStations = lJavaSparkContext.textFile(iFilename).map(line -> {
+
+			// clean text et attributs
+			List<String> lUnits = Arrays.asList(line.replace("[{}[]]+", "").split(",\""));
+			for (String lTemp : lUnits) {
+				lTemp = lTemp.replace("\"", "");
+			}
+
+			// retour l'objet stationDTO
+			return jsonStationToObject(lUnits);
+		});
+		return lStations;
+	}
+
+	/**
+	 * Save Json file to HDFS, Chake Hue
+	 * 
+	 * @param iFolder
+	 * @throws IOException
+	 */
+	public static void saveJsonIntoHDFS(String iFolder) throws IOException {
+		FileSystem lhdfs = FileSystem.get(new Configuration());
+
+		org.apache.hadoop.fs.Path lWorkingDir = lhdfs.getWorkingDirectory();
+		org.apache.hadoop.fs.Path lNewFolderPath = new org.apache.hadoop.fs.Path(
+				BundelUtils.get("hdfs.bruteData.path") + iFolder);
+
+		lNewFolderPath = org.apache.hadoop.fs.Path.mergePaths(lWorkingDir, lNewFolderPath);
+
+		if (!lhdfs.exists(lNewFolderPath)) {
+			lhdfs.mkdirs(lNewFolderPath);
+		}
+
+		org.apache.hadoop.fs.Path localFilePath = new org.apache.hadoop.fs.Path(iFolder);
+		lhdfs.copyFromLocalFile(localFilePath, lNewFolderPath);
+	}
+
+	/**
 	 * reception de Json a partir de Url de JcDecaux
 	 * 
 	 * @param iUrl
@@ -126,7 +153,36 @@ public class DataManipulation {
 		}
 
 		try {
-			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + sDate.format(lNow), lFile);
+			InputStream lInput = null;
+			FileOutputStream lWriteFile = null;
+
+			try {
+				// provide connection
+				URL lException = new URL(iUrl);
+				URLConnection lConnection = lException.openConnection();
+				lInput = lConnection.getInputStream();
+				String lFileName = lPath + "/" + lFile;
+				lWriteFile = new FileOutputStream(lFileName);
+				byte[] lBuffer = new byte[1024];
+
+				int lReader;
+				while ((lReader = lInput.read(lBuffer)) > 0) {
+					lWriteFile.write(lBuffer, 0, lReader);
+				}
+
+				lWriteFile.flush();
+			} catch (IOException e) {
+				System.out.println("Error while trying to download the file.");
+				System.err.println(e);
+			} finally {
+				try {
+					lWriteFile.close();
+					lInput.close();
+				} catch (IOException e) {
+					System.err.println(e);
+				}
+
+			}
 			saveJsonIntoHDFS(lFile);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -135,23 +191,6 @@ public class DataManipulation {
 		// besoin de retourner le file path pour plus simple que l'identifier
 		// par date dans la prochaine etape
 		return iPath + sDate.format(lNow) + "/" + lFile;
-	}
-
-	public static void saveJsonIntoHDFS(String iFolder) throws IOException {
-		FileSystem lhdfs = FileSystem.get(new Configuration());
-
-		org.apache.hadoop.fs.Path lWorkingDir = lhdfs.getWorkingDirectory();
-		org.apache.hadoop.fs.Path lNewFolderPath = new org.apache.hadoop.fs.Path(
-				BundelUtils.get("hdfs.bruteData.path") + iFolder);
-
-		lNewFolderPath = org.apache.hadoop.fs.Path.mergePaths(lWorkingDir, lNewFolderPath);
-
-		if (!lhdfs.exists(lNewFolderPath)) {
-			lhdfs.mkdirs(lNewFolderPath);
-		}
-
-		org.apache.hadoop.fs.Path localFilePath = new org.apache.hadoop.fs.Path(iFolder);
-		lhdfs.copyFromLocalFile(localFilePath, lNewFolderPath);
 	}
 
 	/**
@@ -205,14 +244,13 @@ public class DataManipulation {
 
 	// Test
 	public void main(String[] args) {
-		// String lJsonFile;
-		// SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
-		// // get les données brutes de JcDecaux
-		// lJsonFile = DataManipulation.getDataBrute(
-		// BundelUtils.get("url.stations"),
-		// BundelUtils.get("bruteData.path"));
-		// // to parquet
-		// DataManipulation.getParquets(lJsonFile,
-		// BundelUtils.get("data.frame.path"));
+		String lJsonFile;
+		SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
+
+		// get les données brutes de JcDecaux
+		lJsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"), BundelUtils.get("bruteData.path"));
+
+		// to parquet
+		DataManipulation.getParquets(lJsonFile, BundelUtils.get("data.frame.path"));
 	}
 }

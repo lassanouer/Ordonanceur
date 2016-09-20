@@ -3,9 +3,6 @@ package com.ov.project.commons;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import com.ov.SparkManager;
-import com.ov.project.utilities.BundelUtils;
-
 /**
  * 
  * @author Anouer.Lassoued
