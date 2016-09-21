@@ -143,16 +143,13 @@ public class ClientOVSocket {
 
 	/*
 	 * 
-	 * Chrone de prediction chaque 5 minutes On doit avoire 10 prédictions dans
-	 * 50 minutes dont 1 pred temps réele 5 pred 30 minute 4 pred model
-	 * journaliére
+	 * Chrone de prediction chaque 5 minutes ==> 10 prédictions dans 50 minutes
+	 * 1 pred temps réele 
+	 * 5 pred 30 minute 
+	 * 4 pred model journaliére
 	 */
 
-	/**
-	 * chaque 50 minutes une prédiction de model Hourly
-	 * 
-	 * @return
-	 */
+
 	public String getStationId(VelibKey iVelibKey) {
 		return iVelibKey.getStationId();
 	}
@@ -179,7 +176,11 @@ public class ClientOVSocket {
 		lMapPred.reduceByKey((a, b) -> concatPredictions(a, b));
 	}
 
-
+	/**
+	 * chaque 50 minutes une prédiction de model Hourly
+	 * 
+	 * @return
+	 */
 	public Thread GoPredThreadHourly() {
 		Date lNow = new Date();
 		return new Thread(new Runnable() {
