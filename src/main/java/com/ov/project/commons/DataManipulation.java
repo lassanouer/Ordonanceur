@@ -1,9 +1,11 @@
 package com.ov.project.commons;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -14,7 +16,9 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -25,6 +29,7 @@ import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SaveMode;
 
 import com.ov.SparkManager;
+import com.ov.VelibKey;
 import com.ov.project.mapper.StationDTO;
 import com.ov.project.utilities.BundelUtils;
 import com.ov.project.utilities.DateUtils;
@@ -160,11 +165,14 @@ public class DataManipulation {
 				// provide connection
 				URL lException = new URL(iUrl);
 				URLConnection lConnection = lException.openConnection();
+
 				lInput = lConnection.getInputStream();
 				String lFileName = lPath + "/" + lFile;
-				lWriteFile = new FileOutputStream(lFileName);
-				byte[] lBuffer = new byte[1024];
+				File lfile = new File(lFileName);
+				lfile.createNewFile();
+				lWriteFile = new FileOutputStream(lFileName, false);
 
+				byte[] lBuffer = new byte[1024];
 				int lReader;
 				while ((lReader = lInput.read(lBuffer)) > 0) {
 					lWriteFile.write(lBuffer, 0, lReader);
@@ -183,7 +191,8 @@ public class DataManipulation {
 				}
 
 			}
-			saveJsonIntoHDFS(lFile);
+			// Save into HDFS
+			// saveJsonIntoHDFS(lFile);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -240,6 +249,42 @@ public class DataManipulation {
 
 		// TODO insert to impala Database
 		// finalJoin.registerTempTable("stations");
+	}
+
+	/**
+	 * pour simuler la prediction j'ai tenté de déserializer les hashmap
+	 * sauvegarder dans le model
+	 * 
+	 * @param iInput
+	 * @return
+	 * @throws IOException
+	 */
+	public static Map<? extends VelibKey, ? extends Integer> LoadHashMap(String iInput) throws IOException {
+		Map<VelibKey, Integer> lMap = null;
+		FileInputStream lFileStream = null;
+		ObjectInputStream lInputStream = null;
+
+		try {
+			lFileStream = new FileInputStream(iInput);
+			lInputStream = new ObjectInputStream(lFileStream);
+			lMap = (HashMap) lInputStream.readObject();
+		} catch (IOException var9) {
+			var9.printStackTrace();
+		} catch (ClassNotFoundException var10) {
+			System.out.println("Class not found");
+			var10.printStackTrace();
+		} finally {
+			if (lInputStream != null) {
+				lInputStream.close();
+			}
+
+			if (lFileStream != null) {
+				lFileStream.close();
+			}
+
+		}
+
+		return lMap;
 	}
 
 	// Test
