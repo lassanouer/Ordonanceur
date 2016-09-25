@@ -1,26 +1,16 @@
 package com.ov.project.commons;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -31,7 +21,7 @@ import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SaveMode;
 
 import com.ov.SparkManager;
-import com.ov.VelibKey;
+import com.ov.importDataSources.ImportAPIfile;
 import com.ov.project.mapper.StationDTO;
 import com.ov.project.utilities.BundelUtils;
 import com.ov.project.utilities.DateUtils;
@@ -92,8 +82,6 @@ public class DataManipulation {
 		lStation.setfRoundedSystemDate(new Timestamp(DateUtils.roundFiveMin(lNow).getTime()));
 		lStation.setfLaggedRoundedSystemDate(DateUtils.calculateLaggedRoundedSystemDate());
 
-		System.out.println(BundelUtils.get("msg.info.json.save"));
-		// insertStationtoImpala(lStation);
 		return lStation;
 	}
 
@@ -162,47 +150,14 @@ public class DataManipulation {
 		}
 
 		try {
-			InputStream lInput = null;
-			FileOutputStream lWriteFile = null;
-
-			try {
-				// provide connection
-				URL lException = new URL(iUrl);
-				URLConnection lConnection = lException.openConnection();
-
-				lInput = lConnection.getInputStream();
-				String lFileName = lPath + "/" + lFile;
-				File lfile = new File(lFileName);
-				lfile.createNewFile();
-				lWriteFile = new FileOutputStream(lFileName, false);
-
-				byte[] lBuffer = new byte[1024];
-				int lReader;
-				while ((lReader = lInput.read(lBuffer)) > 0) {
-					lWriteFile.write(lBuffer, 0, lReader);
-				}
-
-				lWriteFile.flush();
-			} catch (IOException e) {
-				System.out.println(BundelUtils.get("error.file.upload"));
-				System.err.println(e);
-			} finally {
-				try {
-					lWriteFile.close();
-					lInput.close();
-				} catch (IOException e) {
-					System.err.println(e);
-				}
-
-			}
-			// Save into HDFS
-			// saveJsonIntoHDFS(lFile);
+			ImportAPIfile.storeJSONFileToTxt(iUrl, iPath + sDate.format(lNow), lFile);
+			saveJsonIntoHDFS(lFile);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-
-		// on a besoin de retourner le file path pour identifier le file courant
-		// au lieux de l chercher dans la directory
+		
+		// besoin de retourner le file path pour plus simple que l'identifier
+		// par date dans la prochaine etape
 		return iPath + sDate.format(lNow) + "/" + lFile;
 	}
 
@@ -223,7 +178,7 @@ public class DataManipulation {
 		// get data from Json
 		JavaRDD<StationDTO> lStationsDTO = stationDTOFromJsonConverter(iJsonPath);
 		DataFrame lSchemaDBrute = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
-		// lSchemaDBrute.cache();
+
 		// join les données dynamique et les données statics
 		DataFrame lSchemaSatic = lSqlContext.read().load(BundelUtils.get("static.path"));
 		DataFrame lFinalJoin = lSchemaDBrute
@@ -242,128 +197,27 @@ public class DataManipulation {
 						lSchemaSatic.col("sPerimeter"), lSchemaSatic.col("sZipcode"))
 				// rename column sPopTot to sPopulation
 				.withColumnRenamed("sPopTot", "sPopulation");
-				// lSchemaDBrute.unpersist();
 
 		// generate parquet
 		String lLinkToOutputFile = iParquetPath + sDate.format(lNow);
 		Path lPath = Paths.get(lLinkToOutputFile);
 		if (Files.notExists(lPath)) {
 			new File(lLinkToOutputFile).mkdir();
-			lFinalJoin.write().parquet(lLinkToOutputFile);
 		}
-		lFinalJoin.write().mode(SaveMode.Append).parquet(lLinkToOutputFile);
+		lFinalJoin.write().mode(SaveMode.Append).save(lLinkToOutputFile);
+
 		// TODO insert to impala Database
-		// lFinalJoin.distinct().repartition(1).write().mode(SaveMode.Append).insertInto("stations");
-	}
-
-	/**
-	 * pour simuler la prediction j'ai tenté de déserializer les hashmap
-	 * sauvegarder dans le model
-	 * 
-	 * @param iInput
-	 * @return
-	 * @throws IOException
-	 */
-	@SuppressWarnings("unchecked")
-	public static Map<? extends VelibKey, ? extends Integer> LoadHashMap(String iInput) throws IOException {
-		Map<VelibKey, Integer> lMap = null;
-		FileInputStream lFileStream = null;
-		ObjectInputStream lInputStream = null;
-
-		try {
-			lFileStream = new FileInputStream(iInput);
-			lInputStream = new ObjectInputStream(lFileStream);
-			lMap = (Map<VelibKey, Integer>) lInputStream.readObject();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			System.out.println("Class not found");
-			e.printStackTrace();
-		} finally {
-			if (lInputStream != null) {
-				lInputStream.close();
-			}
-
-			if (lFileStream != null) {
-				lFileStream.close();
-			}
-
-		}
-
-		return lMap;
-	}
-
-	/**
-	 * Not Working; java.sql.SQLFeatureNotSupportedException:
-	 * [Simba][JDBC](10220) Driver not capable
-	 * 
-	 * @param iDataFrame
-	 */
-	public static void insertStationtoImpala(StationDTO iStationDTO) {
-		Connection lConnection = SingletonWrappers.impalaConnectionGetInstance();
-		PreparedStatement preparedStatement = null;
-		String lInsertTableSQL = "INSERT INTO STATIONS"
-				+ "(fstationid, fSystemDate, fRealDate, fRoundedSystemDate, fLaggedRoundedSystemDate, fBanking, fBonus, fStatus, fBikeStands, fAvailableBikeStands, fAvailableBikes, fMonth, fDayOfWeek, fHour, fRoundedMinutes, sLat, sLong, sAlt, sPopulation, sArea, sPerimeter, sZipcode) VALUES"
-				+ "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-
-		try {
-			preparedStatement = lConnection.prepareStatement(lInsertTableSQL);
-
-			preparedStatement.setString(1, iStationDTO.getfStationId());
-			preparedStatement.setTimestamp(2, iStationDTO.getfSystemDate());
-			preparedStatement.setTimestamp(3, iStationDTO.getfRealDate());
-			preparedStatement.setTimestamp(4, iStationDTO.getfRoundedSystemDate());
-			preparedStatement.setTimestamp(5, iStationDTO.getfLaggedRoundedSystemDate());
-			preparedStatement.setString(8, iStationDTO.getfStatus());
-			preparedStatement.setFloat(9, iStationDTO.getfBikeStands());
-			preparedStatement.setFloat(10, iStationDTO.getfAvailableBikeStands());
-			preparedStatement.setFloat(11, iStationDTO.getfAvailableBikes());
-			preparedStatement.setString(12, iStationDTO.getfMonth());
-			preparedStatement.setString(13, iStationDTO.getfDayOfWeek());
-			preparedStatement.setString(14, iStationDTO.getfHour());
-			preparedStatement.setString(15, iStationDTO.getfRoundedMinutes());
-
-			// execute insert SQL stetement
-			preparedStatement.executeUpdate();
-
-			System.out.println("Record is inserted into DBUSER table!");
-
-		} catch (SQLException e) {
-
-			System.out.println(e.getMessage());
-
-		} finally {
-
-			if (preparedStatement != null) {
-				try {
-					preparedStatement.close();
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-
-		}
-
-		/*
-		 * Test save DataFrame
-		 */
-		// Properties prop = new Properties();
-		// iDataFrame.write().mode(SaveMode.Append).jdbc("jdbc:impala://localhost:21050/ovproject",
-		// "stations", prop);
-		/*
-		 * 
-		 */
+		// finalJoin.registerTempTable("stations");
 	}
 
 	// Test
 	public void main(String[] args) {
 		String lJsonFile;
 		SparkManager.getInstance().init(BundelUtils.get("hadoop.home"));
-
+		
 		// get les données brutes de JcDecaux
 		lJsonFile = DataManipulation.getDataBrute(BundelUtils.get("url.stations"), BundelUtils.get("bruteData.path"));
-
+		
 		// to parquet
 		DataManipulation.getParquets(lJsonFile, BundelUtils.get("data.frame.path"));
 	}
