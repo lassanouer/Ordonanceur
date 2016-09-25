@@ -11,12 +11,14 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -90,6 +92,8 @@ public class DataManipulation {
 		lStation.setfRoundedSystemDate(new Timestamp(DateUtils.roundFiveMin(lNow).getTime()));
 		lStation.setfLaggedRoundedSystemDate(DateUtils.calculateLaggedRoundedSystemDate());
 
+		System.out.println(BundelUtils.get("msg.info.json.save"));
+		// insertStationtoImpala(lStation);
 		return lStation;
 	}
 
@@ -180,7 +184,7 @@ public class DataManipulation {
 
 				lWriteFile.flush();
 			} catch (IOException e) {
-				System.out.println("Error while trying to download the file.");
+				System.out.println(BundelUtils.get("error.file.upload"));
 				System.err.println(e);
 			} finally {
 				try {
@@ -197,8 +201,8 @@ public class DataManipulation {
 			e.printStackTrace();
 		}
 
-		// besoin de retourner le file path pour plus simple que l'identifier
-		// par date dans la prochaine etape
+		// on a besoin de retourner le file path pour identifier le file courant
+		// au lieux de l chercher dans la directory
 		return iPath + sDate.format(lNow) + "/" + lFile;
 	}
 
@@ -219,7 +223,7 @@ public class DataManipulation {
 		// get data from Json
 		JavaRDD<StationDTO> lStationsDTO = stationDTOFromJsonConverter(iJsonPath);
 		DataFrame lSchemaDBrute = lSqlContext.createDataFrame(lStationsDTO, StationDTO.class);
-
+		// lSchemaDBrute.cache();
 		// join les données dynamique et les données statics
 		DataFrame lSchemaSatic = lSqlContext.read().load(BundelUtils.get("static.path"));
 		DataFrame lFinalJoin = lSchemaDBrute
@@ -238,17 +242,18 @@ public class DataManipulation {
 						lSchemaSatic.col("sPerimeter"), lSchemaSatic.col("sZipcode"))
 				// rename column sPopTot to sPopulation
 				.withColumnRenamed("sPopTot", "sPopulation");
+				// lSchemaDBrute.unpersist();
 
 		// generate parquet
 		String lLinkToOutputFile = iParquetPath + sDate.format(lNow);
 		Path lPath = Paths.get(lLinkToOutputFile);
 		if (Files.notExists(lPath)) {
 			new File(lLinkToOutputFile).mkdir();
+			lFinalJoin.write().parquet(lLinkToOutputFile);
 		}
-		lFinalJoin.write().mode(SaveMode.Append).save(lLinkToOutputFile);
-
+		lFinalJoin.write().mode(SaveMode.Append).parquet(lLinkToOutputFile);
 		// TODO insert to impala Database
-		// finalJoin.registerTempTable("stations");
+		// lFinalJoin.distinct().repartition(1).write().mode(SaveMode.Append).insertInto("stations");
 	}
 
 	/**
@@ -259,6 +264,7 @@ public class DataManipulation {
 	 * @return
 	 * @throws IOException
 	 */
+	@SuppressWarnings("unchecked")
 	public static Map<? extends VelibKey, ? extends Integer> LoadHashMap(String iInput) throws IOException {
 		Map<VelibKey, Integer> lMap = null;
 		FileInputStream lFileStream = null;
@@ -267,12 +273,12 @@ public class DataManipulation {
 		try {
 			lFileStream = new FileInputStream(iInput);
 			lInputStream = new ObjectInputStream(lFileStream);
-			lMap = (HashMap) lInputStream.readObject();
-		} catch (IOException var9) {
-			var9.printStackTrace();
-		} catch (ClassNotFoundException var10) {
+			lMap = (Map<VelibKey, Integer>) lInputStream.readObject();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
 			System.out.println("Class not found");
-			var10.printStackTrace();
+			e.printStackTrace();
 		} finally {
 			if (lInputStream != null) {
 				lInputStream.close();
@@ -285,6 +291,69 @@ public class DataManipulation {
 		}
 
 		return lMap;
+	}
+
+	/**
+	 * Not Working; java.sql.SQLFeatureNotSupportedException:
+	 * [Simba][JDBC](10220) Driver not capable
+	 * 
+	 * @param iDataFrame
+	 */
+	public static void insertStationtoImpala(StationDTO iStationDTO) {
+		Connection lConnection = SingletonWrappers.impalaConnectionGetInstance();
+		PreparedStatement preparedStatement = null;
+		String lInsertTableSQL = "INSERT INTO STATIONS"
+				+ "(fstationid, fSystemDate, fRealDate, fRoundedSystemDate, fLaggedRoundedSystemDate, fBanking, fBonus, fStatus, fBikeStands, fAvailableBikeStands, fAvailableBikes, fMonth, fDayOfWeek, fHour, fRoundedMinutes, sLat, sLong, sAlt, sPopulation, sArea, sPerimeter, sZipcode) VALUES"
+				+ "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+		try {
+			preparedStatement = lConnection.prepareStatement(lInsertTableSQL);
+
+			preparedStatement.setString(1, iStationDTO.getfStationId());
+			preparedStatement.setTimestamp(2, iStationDTO.getfSystemDate());
+			preparedStatement.setTimestamp(3, iStationDTO.getfRealDate());
+			preparedStatement.setTimestamp(4, iStationDTO.getfRoundedSystemDate());
+			preparedStatement.setTimestamp(5, iStationDTO.getfLaggedRoundedSystemDate());
+			preparedStatement.setString(8, iStationDTO.getfStatus());
+			preparedStatement.setFloat(9, iStationDTO.getfBikeStands());
+			preparedStatement.setFloat(10, iStationDTO.getfAvailableBikeStands());
+			preparedStatement.setFloat(11, iStationDTO.getfAvailableBikes());
+			preparedStatement.setString(12, iStationDTO.getfMonth());
+			preparedStatement.setString(13, iStationDTO.getfDayOfWeek());
+			preparedStatement.setString(14, iStationDTO.getfHour());
+			preparedStatement.setString(15, iStationDTO.getfRoundedMinutes());
+
+			// execute insert SQL stetement
+			preparedStatement.executeUpdate();
+
+			System.out.println("Record is inserted into DBUSER table!");
+
+		} catch (SQLException e) {
+
+			System.out.println(e.getMessage());
+
+		} finally {
+
+			if (preparedStatement != null) {
+				try {
+					preparedStatement.close();
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+		}
+
+		/*
+		 * Test save DataFrame
+		 */
+		// Properties prop = new Properties();
+		// iDataFrame.write().mode(SaveMode.Append).jdbc("jdbc:impala://localhost:21050/ovproject",
+		// "stations", prop);
+		/*
+		 * 
+		 */
 	}
 
 	// Test

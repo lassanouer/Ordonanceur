@@ -12,15 +12,14 @@ import com.ov.project.utilities.Constants;
  */
 public class VelibCrawler {
 
-	private static boolean sCancel = false;
+	private boolean sCancel = false;
 
 	/**
-	 * Ceci thread qui aspire les données pour la station fournie tous les 2
-	 * minutes
+	 * Ceci thread qui aspire les données pour la station
 	 * 
 	 * @return
 	 */
-	public static Thread goCrawlThread() {
+	public Thread goCrawlThread() {
 		return new Thread(new Runnable() {
 			public void run() {
 				while (!sCancel) {
@@ -47,19 +46,14 @@ public class VelibCrawler {
 	/**
 	 * Arrete le thread goCrawlThread().
 	 */
-	public static void cancel() {
+	public void cancel() {
 		sCancel = true;
 	}
 
 	/**
 	 * start crawler
 	 */
-	public static void start() {
-		Thread lCrawlerThread = new Thread(goCrawlThread());
-		lCrawlerThread.start();
-	}
-
-	public static void main(String[] args) {
+	public void start() {
 		Thread lCrawlerThread = new Thread(goCrawlThread());
 		lCrawlerThread.start();
 	}

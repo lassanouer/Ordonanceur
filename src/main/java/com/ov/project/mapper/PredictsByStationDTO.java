@@ -58,7 +58,7 @@ public class PredictsByStationDTO implements Serializable {
 	public String toString() {
 		String lresult = mIdStation + "/station/contractName=Paris;";
 		for (String lTemp : mPredicts) {
-			lresult += (lTemp + ";");
+			lresult.concat(lTemp + ";");
 		}
 		return lresult;
 	}

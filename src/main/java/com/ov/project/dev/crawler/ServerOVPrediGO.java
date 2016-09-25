@@ -53,21 +53,18 @@ public class ServerOVPrediGO {
 						PrintStream output = new PrintStream(lSocket.getOutputStream());
 						// String lOutputLigne;
 						ChronsPredict lchronsPredict = new ChronsPredict();
+						
+						//get hourly predict, 
 						lchronsPredict.Start();
-
+						
+						// add to map 4 pred of 30min model and 5 préd from  Daily models
+						// 
+						
 						for (Map.Entry<String, PredictsByStationDTO> entry : lchronsPredict.getMpredictMap()
 								.entrySet()) {
 							output.append(entry.getValue().toString()).append("\n");
 						}
 
-						// Set<Entry<String, PredictsByStationDTO>> lEntries =
-						// lchronsPredict.mpredictMap.entrySet();
-						// for (Map.Entry<String, PredictsByStationDTO> lEntry :
-						// lEntries) {
-						// System.out.println(lEntry.getValue().toString());
-						// out.append(lEntry.getValue().toString()).append("\n");
-						// }
-						// out.println("44101/station/contractName=Paris;predictionTime=1470669900000;predictionValue=1;predictionTime=1470670200000;");
 						reader.close();
 						lSocket.close();
 					} catch (IOException e) {

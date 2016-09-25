@@ -12,15 +12,15 @@ import com.ov.VelibKey;
 import com.ov.VelibProvider;
 import com.ov.project.utilities.BundelUtils;
 
-public class ClientOVHandler {
+public class GoPredOV {
 
 	protected Socket client;
 	protected PrintWriter out;
 
-	private int lValue = 30;
+	private int lValue = 30; // 60 et 1
 	private boolean mIsRunning = true;
 
-	public ClientOVHandler(Socket client) {
+	public GoPredOV(Socket client) {
 		this.client = client;
 		try {
 			this.out = new PrintWriter(client.getOutputStream());
@@ -31,7 +31,7 @@ public class ClientOVHandler {
 
 	/**
 	 * 
-	 * Thread d' appel aux prédiction
+	 * Thread qui lance les prédictions
 	 */
 	public void open() {
 		Thread lThread = new Thread(new Runnable() {
@@ -44,8 +44,8 @@ public class ClientOVHandler {
 						VelibProvider lProvider = new VelibProvider(BundelUtils.get("license.path"));
 						// predict throw l'exception de cast de VectorAssembler
 						// a OneHotEncoder
-						lMap = lProvider.predict(BundelUtils.get("data.frame.path"), BundelUtils.get("static.path"), BundelUtils.get("model.path"),
-								BundelUtils.get("hadoop.home"), Calendar.MINUTE, lValue);
+						lMap = lProvider.predict(BundelUtils.get("data.frame.path"), BundelUtils.get("static.path"),
+								BundelUtils.get("model.path"), BundelUtils.get("hadoop.home"), Calendar.MINUTE, lValue);
 
 					} catch (Exception e) {
 						e.printStackTrace();

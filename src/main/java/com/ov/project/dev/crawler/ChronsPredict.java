@@ -161,10 +161,8 @@ public class ChronsPredict {
 	}
 
 	public void Start() {
-		Thread lthreadDaily = GoPredThreadDaily();
-		Thread lthread30 = GoPredThread30();
-		lthreadDaily.start();
-		lthread30.start();
+		Thread GoPredThreadHourly = GoPredThreadDaily();
+		GoPredThreadHourly.start();
 		// look for Amilioration --- juste to test
 	}
 
